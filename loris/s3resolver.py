@@ -22,12 +22,14 @@ class S3Resolver(_AbstractResolver):
         ''' setup object and validate '''
         super(S3Resolver, self).__init__(config)
         self.cache_root = self.config.get('cache_root')
+        self.default_format = self.config.get('default_format', None)
         source_root = self.config.get('source_root')
         assert source_root, 'please set SOURCE_ROOT in environment'
         scheme, self.s3bucket, self.prefix, ___, ___ = urlparse.urlsplit(
             source_root
         )
         assert scheme == 's3', '{0} not an s3 url'.format(source_root)
+
 
 
     def is_resolvable(self, ident):
@@ -53,27 +55,108 @@ class S3Resolver(_AbstractResolver):
             logger.debug('is_resolvable = True')
             return True
 
+   def format_from_ident(self, ident, potential_format):
+        if self.default_format is not None:
+            return self.default_format
+        elif potential_format is not None:
+            return potential_format
+        elif ident.rfind('.') != -1 and (len(ident) - ident.rfind('.') <= 5):
+            return ident.split('.')[-1]
+        else:
+            message = 'Format could not be determined for: %s.' % (ident)
+            logger.warn(message)
+            raise ResolverException(404, message)
+
+    def raise_404_for_ident(self, ident):
+        message = 'Image not found for identifier: %s.' % (ident)
+        raise ResolverException(404, message)
+
+    def cached_files_for_ident(self, ident):
+        cache_dir = self.cache_dir_path(ident)
+        if exists(cache_dir):
+            return glob.glob(join(cache_dir, 'loris_cache.*'))
+        return []
+
+    def in_cache(self, ident):
+        cache_dir = self.cache_dir_path(ident)
+        if exists(cache_dir):
+            cached_files = self.cached_files_for_ident(ident)
+            if cached_files:
+                return True
+            else:
+                log_message = 'Cached image not found for identifier: %s. Empty directory where image expected?' % (ident)
+                logger.warn(log_message)
+                self.raise_404_for_ident(ident)
+        return False
+
+    def cached_object(self, ident):
+        cached_files = self.cached_files_for_ident(ident)
+        if cached_files:
+            cached_object = cached_files[0]
+        else:
+            self.raise_404_for_ident(ident)
+        return cached_object
+
+
+    def copy_to_cache(self, ident):
+        ident = unquote(ident)
+        source_url = self._web_request_url(ident)
+
+        logger.debug('src image: %s' % (source_url,))
+
+        extension = self.format_from_ident(ident, None)
+        logger.debug('src extension %s' % (extension,))
+
+        cache_dir = self.cache_dir_path(ident)
+        local_fp = join(cache_dir, "loris_cache." + extension)
+
+        try:
+            makedirs(dirname(local_fp))
+        except:
+            logger.debug("Directory already existed... possible problem if not a different format")
+
+
+        # Download the image from S3
+        bucketname = self.s3bucket
+        key = ident.partition('/')[0]
+        logger.debug('Getting img from AWS S3. bucketname, key: %s, %s' % (bucketname, key))
+        s3_client = boto3.client('s3')
+        s3_client.download_file(bucketname, key, local_fp)
+
+        logger.info("Copied %s to %s" % (source_url, local_fp))
+
 
     def resolve(self, ident):
-        '''get me the file'''
-        ident = unquote(ident)
-        local_fp = join(self.cache_root, ident)
-        logger.debug('local_fp: %s' % (local_fp))
+        cache_dir = self.cache_dir_path(ident)
+        if not exists(cache_dir):
+            self.copy_to_cache(ident)
+        cached_file_path = self.cached_object(ident)
+        format = self.format_from_ident(cached_file_path, None)
+        logger.debug('src image from local disk: %s' % (cached_file_path,))
+        return (cached_file_path, format)
 
-        if exists(local_fp):
-            format = 'jp2' # FIXME
-            logger.debug('src image from local disk: %s' % (local_fp,))
-            return (local_fp, format)
-        else:
-            # get image from S3
-            bucketname = self.s3bucket
-            key = ident.partition('/')[0]
-            logger.debug('Getting img from AWS S3. bucketname, key: %s, %s' % (bucketname, key))
-            s3_client = boto3.client('s3')
-            s3_client.download_file(bucketname, key, local_fp)
 
-            format = 'jp2' #FIXME
-            logger.debug('src format %s' % (format,))
-
-            return (local_fp, format)
-
+## This is the old resolve.  Get rid of it.
+#
+#    def resolve(self, ident):
+#        '''get me the file'''
+#        ident = unquote(ident)
+#        local_fp = join(self.cache_root, ident)
+#        logger.debug('local_fp: %s' % (local_fp))
+#
+#        if exists(local_fp):
+#            format = format = self.format_from_ident(ident, None)
+#            logger.debug('src image from local disk: %s' % (local_fp,))
+#            return (local_fp, format)
+#        else:
+#            # get image from S3
+#            bucketname = self.s3bucket
+#            key = ident.partition('/')[0]
+#            logger.debug('Getting img from AWS S3. bucketname, key: %s, %s' % (bucketname, key))
+#            s3_client = boto3.client('s3')
+#            s3_client.download_file(bucketname, key, local_fp)
+#
+#            format = format = self.format_from_ident(ident, None)
+#            logger.debug('src format %s' % (format,))
+#
+#            return (local_fp, format)

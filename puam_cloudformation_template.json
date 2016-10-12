@@ -469,7 +469,7 @@
                     "02_user": {"command": "useradd -d /home/loris -s /sbin/false loris"}
                 }},
                 "install_loris_app": {
-                    "sources": {"/home/loris": "https://github.com/loris-imageserver/loris/archive/development.zip"},
+                    "sources": {"/home/loris": "https://github.com/ratliff/loris/archive/development.zip"},
                     "commands": {
                         "01_setup": {
                             "command": "chmod 700 setup.py",
@@ -491,7 +491,7 @@
                 "configure_loris": {
                     "files": {
                         "/etc/loris2/loris2.conf": {
-                            "source": "https://s3-us-west-2.amazonaws.com/loris-config-files/loris2.conf",
+                            "source": "https://s3-us-west-2.amazonaws.com/loris-config-files/s3loris2.conf",
                             "mode": "000644",
                             "owner": "root",
                             "group": "root"
