@@ -1,13 +1,17 @@
 # -*- coding: utf-8 -*-
 from loris.resolver import _AbstractResolver
+from loris.resolver import SimpleHTTPResolver
 from urllib import unquote
 import urlparse
-from os.path import join, exists
+from os import makedirs
+from os.path import join, exists, dirname
 import boto3
 import botocore
 import logging
 
-logger = logging.getLogger('webapp')
+import glob
+
+logger = logging.getLogger(__name__)
 
 
 class S3Resolver(_AbstractResolver):
@@ -35,6 +39,7 @@ class S3Resolver(_AbstractResolver):
     def is_resolvable(self, ident):
         '''does this file even exist?'''
         ident = unquote(ident)
+        logger.debug('is_resolvable called with ident = %s', ident)
         local_fp = join(self.cache_root, ident)
         if exists(local_fp):
             return True
@@ -44,6 +49,7 @@ class S3Resolver(_AbstractResolver):
 
             try:
                 # Strip off everything in the URL after the filename
+                #key = ident.split('/')[0]
                 key = ident
                 logger.debug('Checking existence of Bucket = %s   Filename = %s', self.s3bucket, key)
                 s3.Object(self.s3bucket, key).load()
@@ -55,7 +61,7 @@ class S3Resolver(_AbstractResolver):
             logger.debug('is_resolvable = True')
             return True
 
-   def format_from_ident(self, ident, potential_format):
+    def format_from_ident(self, ident, potential_format):
         if self.default_format is not None:
             return self.default_format
         elif potential_format is not None:
@@ -111,6 +117,7 @@ class S3Resolver(_AbstractResolver):
         local_fp = join(cache_dir, "loris_cache." + extension)
 
         try:
+            logger.debug('Trying to make directory |%s|' % local_fp)
             makedirs(dirname(local_fp))
         except:
             logger.debug("Directory already existed... possible problem if not a different format")
@@ -125,38 +132,24 @@ class S3Resolver(_AbstractResolver):
 
         logger.info("Copied %s to %s" % (source_url, local_fp))
 
+    def cache_dir_path(self, ident):
+        ident = unquote(ident)
+        return join(
+                self.cache_root,
+                SimpleHTTPResolver._cache_subroot(ident)
+        )
+
+    def _web_request_url(self, ident):
+        return ident
+
 
     def resolve(self, ident):
         cache_dir = self.cache_dir_path(ident)
+        logger.debug('Checking for existence of cache_dir =  %s' % (cache_dir,))
         if not exists(cache_dir):
+            logger.debug('copying source file to %s' % (cache_dir,))
             self.copy_to_cache(ident)
         cached_file_path = self.cached_object(ident)
         format = self.format_from_ident(cached_file_path, None)
-        logger.debug('src image from local disk: %s' % (cached_file_path,))
+        logger.debug('returning src image from local disk: %s' % (cached_file_path,))
         return (cached_file_path, format)
-
-
-## This is the old resolve.  Get rid of it.
-#
-#    def resolve(self, ident):
-#        '''get me the file'''
-#        ident = unquote(ident)
-#        local_fp = join(self.cache_root, ident)
-#        logger.debug('local_fp: %s' % (local_fp))
-#
-#        if exists(local_fp):
-#            format = format = self.format_from_ident(ident, None)
-#            logger.debug('src image from local disk: %s' % (local_fp,))
-#            return (local_fp, format)
-#        else:
-#            # get image from S3
-#            bucketname = self.s3bucket
-#            key = ident.partition('/')[0]
-#            logger.debug('Getting img from AWS S3. bucketname, key: %s, %s' % (bucketname, key))
-#            s3_client = boto3.client('s3')
-#            s3_client.download_file(bucketname, key, local_fp)
-#
-#            format = format = self.format_from_ident(ident, None)
-#            logger.debug('src format %s' % (format,))
-#
-#            return (local_fp, format)
