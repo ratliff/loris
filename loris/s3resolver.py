@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from loris_exception import ResolverException
 from loris.resolver import _AbstractResolver
 from loris.resolver import SimpleHTTPResolver
 from urllib import unquote
