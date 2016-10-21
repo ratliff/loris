@@ -126,8 +126,7 @@ class S3Resolver(_AbstractResolver):
 
         # Download the image from S3
         bucketname = self.s3bucket
-        key = ident.partition('/')[0]
-        logger.debug('Getting img from AWS S3. bucketname, key: %s, %s' % (bucketname, key))
+        logger.debug('Getting img from AWS S3. bucketname, key: %s, %s' % (bucketname, ident))
         s3_client = boto3.client('s3')
         s3_client.download_file(bucketname, key, local_fp)
 
