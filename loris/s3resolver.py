@@ -128,7 +128,7 @@ class S3Resolver(_AbstractResolver):
         bucketname = self.s3bucket
         logger.debug('Getting img from AWS S3. bucketname, key: %s, %s' % (bucketname, ident))
         s3_client = boto3.client('s3')
-        s3_client.download_file(bucketname, key, local_fp)
+        s3_client.download_file(bucketname, ident, local_fp)
 
         logger.info("Copied %s to %s" % (source_url, local_fp))
 
