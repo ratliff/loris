@@ -225,7 +225,7 @@
             },
             "us-west-2": {
                 "PV64": "ami-eff1028f",
-                "HVM64": "ami-9abea4fb",
+                "HVM64": "ami-e1218681",
                 "HVMG2": "ami-ee897b8e"
             },
             "us-west-1": {
@@ -391,8 +391,6 @@
             "Metadata": {"AWS::CloudFormation::Init": {
                 "configSets": {"loris_install": [
                     "install_cfn",
-                    "install_packages",
-                    "install_python_modules",
                     "create_loris_user",
                     "install_loris_app",
                     "configure_loris",
@@ -448,28 +446,6 @@
                         ]
                     }}}
                 },
-                "install_packages": {"packages": {"apt": {
-                    "git": [],
-                    "libjpeg-turbo8-dev": [],
-                    "libfreetype6-dev": [],
-                    "zlib1g-dev": [],
-                    "liblcms2-dev": [],
-                    "liblcms-utils": [],
-                    "libtiff5-dev": [],
-                    "python-dev": [],
-                    "libwebp-dev": [],
-                    "apache2": [],
-                    "libapache2-mod-wsgi": [],
-                    "nfs-common": []
-                }}},
-                "install_python_modules": {"commands": {
-                    "01_upgrade_pip": {"command": "sudo pip install Pillow"},
-                    "02_install_requests": {"command": "sudo pip install requests"},
-                    "03_install_configobj": {"command": "sudo pip install configobj"},
-                    "04_install_mock": {"command": "sudo pip install mock"},
-                    "05_install_responses": {"command": "sudo pip install responses"},
-                    "06_install_boto": {"command": "sudo pip install boto3"}
-                }},
                 "create_loris_user": {"commands": {
                     "01_dir": {"command": "mkdir /home/loris"},
                     "02_user": {"command": "useradd -d /home/loris -s /sbin/false loris"}
@@ -589,11 +565,7 @@
                     "",
                     [
                         "#!/bin/bash -xe\n",
-                        "apt-get update\n",
-                        "apt-get dist-upgrade -y\n",
-                        "apt-get install -y python-setuptools python-pip\n",
                         "easy_install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz\n",
-                        "pip install pyopenssl ndg-httpsclient pyasn1\n",
                         "cp /usr/local/bin/cfn-hup /etc/init.d/cfn-hup \n",
                         "chmod +x /etc/init.d/cfn-hup \n",
                         "update-rc.d cfn-hup defaults \n ",
