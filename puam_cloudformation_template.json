@@ -15,6 +15,12 @@
             "Type": "AWS::EC2::KeyPair::KeyName",
             "ConstraintDescription": "must be the name of an existing EC2 KeyPair."
         },
+        "LorisVersionTag": {
+            "Description": "The tag for the Loris code version you wish to install",
+            "Type": "String",
+            "MinLength": "1",
+            "Default": "2.0.1"
+        },
         "MountPoint": {
             "Description": "The Linux mount point for the EFS volume",
             "Type": "String",
@@ -469,20 +475,20 @@
                     "02_user": {"command": "useradd -d /home/loris -s /sbin/false loris"}
                 }},
                 "install_loris_app": {
-                    "sources": {"/home/loris": "https://github.com/ratliff/loris/archive/development.zip"},
+                    "sources": {"/home/loris": {"Fn::Join": ["", ["https://github.com/ratliff/loris/archive/", {"Ref": "LorisVersionTag"}, ".zip"]]}},
                     "commands": {
                         "01_setup": {
                             "command": "chmod 700 setup.py",
-                            "cwd": "/home/loris/loris-development"
+                            "cwd": {"Fn::Join": ["", ["/home/loris/loris-", {"Ref": "LorisVersionTag"}]]}
                         },
                         "02_setup": {
                             "command": "./setup.py install",
-                            "cwd": "/home/loris/loris-development"
+                            "cwd": {"Fn::Join": ["", ["/home/loris/loris-", {"Ref": "LorisVersionTag"}]]}
                         },
                         "03_setup": {"command": "sudo a2enmod headers expires"},
-                        "04_setup": {"command": "cp /home/loris/loris-development/bin/Linux/x86_64/kdu_expand /usr/local/bin"},
+                        "04_setup": {"command": {"Fn::Join": ["", ["cp /home/loris/loris-", {"Ref": "LorisVersionTag"}, "/bin/Linux/x86_64/kdu_expand /usr/local/bin"]]}},
                         "05_setup": {"command": "chmod 755 /usr/local/bin/kdu_expand"},
-                        "06_setup": {"command": "cp /home/loris/loris-development/lib/Linux/x86_64/libkdu_v74R.so /usr/local/lib"},
+                        "06_setup": {"command": {"Fn::Join": ["", ["cp /home/loris/loris-", {"Ref": "LorisVersionTag"}, "/lib/Linux/x86_64/libkdu_v74R.so /usr/local/lib"]]}},
                         "07_setup": {"command": "chmod 644 /usr/local/lib/libkdu_v74R.so"},
                         "08_setup": {"command": "echo '/usr/local/lib' >> /etc/ld.so.conf"},
                         "09_setup": {"command": "ldconfig"}
