@@ -286,7 +286,7 @@
         "WebServerGroup": {
             "Type": "AWS::AutoScaling::AutoScalingGroup",
             "Properties": {
-                "VPCZoneIdentifier": [ {"Ref": "SubnetId"} ],
+                "VPCZoneIdentifier": [{"Ref": "SubnetId"}],
                 "LaunchConfigurationName": {"Ref": "LaunchConfig"},
                 "MinSize": "1",
                 "MaxSize": "3",
@@ -394,7 +394,8 @@
                     "create_loris_user",
                     "install_loris_app",
                     "configure_loris",
-                    "mount_efs"
+                    "mount_efs",
+                    "install_cloudwatch_agent"
                 ]},
                 "install_cfn": {
                     "files": {
@@ -451,20 +452,53 @@
                     "02_user": {"command": "useradd -d /home/loris -s /sbin/false loris"}
                 }},
                 "install_loris_app": {
-                    "sources": {"/home/loris": {"Fn::Join": ["", ["https://github.com/ratliff/loris/archive/", {"Ref": "LorisVersionTag"}, ".zip"]]}},
+                    "sources": {"/home/loris": {"Fn::Join": [
+                        "",
+                        [
+                            "https://github.com/ratliff/loris/archive/",
+                            {"Ref": "LorisVersionTag"},
+                            ".zip"
+                        ]
+                    ]}},
                     "commands": {
                         "01_setup": {
                             "command": "chmod 700 setup.py",
-                            "cwd": {"Fn::Join": ["", ["/home/loris/loris-", {"Ref": "LorisVersionTag"}]]}
+                            "cwd": {"Fn::Join": [
+                                "",
+                                [
+                                    "/home/loris/loris-",
+                                    {"Ref": "LorisVersionTag"}
+                                ]
+                            ]}
                         },
                         "02_setup": {
                             "command": "./setup.py install",
-                            "cwd": {"Fn::Join": ["", ["/home/loris/loris-", {"Ref": "LorisVersionTag"}]]}
+                            "cwd": {"Fn::Join": [
+                                "",
+                                [
+                                    "/home/loris/loris-",
+                                    {"Ref": "LorisVersionTag"}
+                                ]
+                            ]}
                         },
                         "03_setup": {"command": "sudo a2enmod headers expires"},
-                        "04_setup": {"command": {"Fn::Join": ["", ["cp /home/loris/loris-", {"Ref": "LorisVersionTag"}, "/bin/Linux/x86_64/kdu_expand /usr/local/bin"]]}},
+                        "04_setup": {"command": {"Fn::Join": [
+                            "",
+                            [
+                                "cp /home/loris/loris-",
+                                {"Ref": "LorisVersionTag"},
+                                "/bin/Linux/x86_64/kdu_expand /usr/local/bin"
+                            ]
+                        ]}},
                         "05_setup": {"command": "chmod 755 /usr/local/bin/kdu_expand"},
-                        "06_setup": {"command": {"Fn::Join": ["", ["cp /home/loris/loris-", {"Ref": "LorisVersionTag"}, "/lib/Linux/x86_64/libkdu_v74R.so /usr/local/lib"]]}},
+                        "06_setup": {"command": {"Fn::Join": [
+                            "",
+                            [
+                                "cp /home/loris/loris-",
+                                {"Ref": "LorisVersionTag"},
+                                "/lib/Linux/x86_64/libkdu_v74R.so /usr/local/lib"
+                            ]
+                        ]}},
                         "07_setup": {"command": "chmod 644 /usr/local/lib/libkdu_v74R.so"},
                         "08_setup": {"command": "echo '/usr/local/lib' >> /etc/ld.so.conf"},
                         "09_setup": {"command": "ldconfig"}
@@ -545,7 +579,43 @@
                             "/source_images"
                         ]
                     ]}}
-                }}
+                }},
+                "install_cloudwatch_agent": {
+                  
+                  "files": {
+                    
+                      "/home/loris/awslogs-agent-setup.py": { "source": "https://s3.amazonaws.com/aws-cloudwatch/downloads/latest/awslogs-agent-setup.py"},
+                    
+                      "/home/loris/cloudwatch.conf": {
+                                "content": {
+                                    "Fn::Join": [
+                                        "",
+                                        [
+                                            "[general]\n",
+                                            "state_file= /var/awslogs/agent-state\n",
+                                            "[/var/log/apache2/access.log]\n",
+                                            "file = /var/log/apache2/access.log\n",
+                                            "log_group_name = ", {"Ref": "LorisServerLogGroup"}, "\n",
+                                            "log_stream_name = instance_1/apache_access.log\n",
+                                            "datetime_format = %d/%b/%Y:%H:%M:%S"
+                                        ]
+                                    ]
+                                },
+                                "mode": "000400",
+                                "owner": "root",
+                                "group": "root"
+                    }},
+                    "commands": {
+                        "01_setup": {
+                            "command": "chmod 444 awslogs-agent-setup.py",
+                            "cwd": "/home/loris"
+                        },
+                        "02_setup": {
+                            "command": {"Fn::Join": ["", ["python awslogs-agent-setup.py -n --region ", {"Ref": "AWS::Region"}, " -c /home/loris/cloudwatch.conf"]]},
+                            "cwd": "/home/loris"
+                        }
+                    }
+                }
             }},
             "Properties": {
                 "ImageId": {"Fn::FindInMap": [
@@ -559,7 +629,7 @@
                 ]},
                 "InstanceType": {"Ref": "InstanceType"},
                 "SecurityGroups": [{"Ref": "LorisServerSecurityGroup"}],
-                "IamInstanceProfile":{"Ref":"S3PUAMImageBucketInstanceProfile"},
+                "IamInstanceProfile": {"Ref": "S3PUAMImageBucketInstanceProfile"},
                 "KeyName": {"Ref": "KeyName"},
                 "UserData": {"Fn::Base64": {"Fn::Join": [
                     "",
@@ -589,63 +659,73 @@
                 ]}}
             }
         },
-        "S3PUAMImageBucketRole":{
-         "Type":"AWS::IAM::Role",
-         "Properties":{
-            "Path":"/",
-            "Policies":[
-               {
-                  "PolicyName":"S3PUAMImageBucketRole",
-                  "PolicyDocument":{
-                     "Version":"2012-10-17",
-                     "Statement":[
-                        {
-         "Effect":"Allow",
-         "Action":[
-            "s3:ListBucket",
-            "s3:GetBucketLocation"
-         ],
-         "Resource":"arn:aws:s3:::puamimage"
-      },
-      {
-         "Effect":"Allow",
-         "Action":[
-            "s3:GetObject"
-         ],
-         "Resource":"arn:aws:s3:::puamimage/*"
-      }
-                     ]
-                  }
-               }
-            ],
-            "AssumeRolePolicyDocument":{
-               "Statement":[
-                  {
-                     "Action":[
-                        "sts:AssumeRole"
-                     ],
-                     "Effect":"Allow",
-                     "Principal":{
-                        "Service":[
-                           "ec2.amazonaws.com"
-                        ]
-                     }
-                  }
-               ]
+        "LorisServerLogGroup": {
+            "Type": "AWS::Logs::LogGroup",
+            "Properties": {
+                "RetentionInDays": 7
             }
-         }
-      },
-      "S3PUAMImageBucketInstanceProfile":{
-         "Type":"AWS::IAM::InstanceProfile",
-         "Properties":{
-            "Path":"/",
-            "Roles":[
-               {
-                  "Ref":"S3PUAMImageBucketRole"
-               }
-            ]
-         }
-      },
+        },
+        "LorisServerRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "Path": "/",
+                "Policies": [
+                  {
+                    "PolicyName": "S3PUAMImageBucketRolePolicy",
+                    "PolicyDocument": {
+                        "Version": "2012-10-17",
+                        "Statement": [
+                            {
+                                "Effect": "Allow",
+                                "Action": [
+                                    "s3:ListBucket",
+                                    "s3:GetBucketLocation"
+                                ],
+                                "Resource": "arn:aws:s3:::puamimage"
+                            },
+                            {
+                                "Effect": "Allow",
+                                "Action": ["s3:GetObject"],
+                                "Resource": "arn:aws:s3:::puamimage/*"
+                            }
+                        ]
+                    }
+                  },
+                  {
+                        "PolicyName": "LogRolePolicy",
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                      "logs:Create*",
+                                      "logs:PutLogEvents",
+                                      "s3:GetObject"
+                                    ],     
+                                    "Resource": [
+                                        "arn:aws:logs:*:*:*",
+                                        "arn:aws:s3:::*"
+                                    ]
+                                }
+                            ]
+                        }
+                    }
+                ],
+                "AssumeRolePolicyDocument": {"Statement": [{
+                    "Action": ["sts:AssumeRole"],
+                    "Effect": "Allow",
+                    "Principal": {"Service": ["ec2.amazonaws.com"]}
+                }]}
+            }
+        },
+        "S3PUAMImageBucketInstanceProfile": {
+            "Type": "AWS::IAM::InstanceProfile",
+            "Properties": {
+                "Path": "/",
+                "Roles": [{"Ref": "LorisServerRole"}]
+            }
+        },
         "WebServerScaleUpPolicy": {
             "Type": "AWS::AutoScaling::ScalingPolicy",
             "Properties": {
@@ -703,7 +783,7 @@
         "ElasticLoadBalancer": {
             "Type": "AWS::ElasticLoadBalancing::LoadBalancer",
             "Properties": {
-                "Subnets": [ {"Ref": "SubnetId"} ],
+                "Subnets": [{"Ref": "SubnetId"}],
                 "CrossZone": "true",
                 "Listeners": [{
                     "LoadBalancerPort": "80",
