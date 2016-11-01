@@ -395,7 +395,7 @@
                     "install_loris_app",
                     "configure_loris",
                     "mount_efs",
-                    "install_cloudwatch_agent"
+                    "download_cloudwatch_agent"
                 ]},
                 "install_cfn": {
                     "files": {
@@ -580,41 +580,17 @@
                         ]
                     ]}}
                 }},
-                "install_cloudwatch_agent": {
+                "download_cloudwatch_agent": {
                   
                   "files": {
                     
-                      "/home/loris/awslogs-agent-setup.py": { "source": "https://s3.amazonaws.com/aws-cloudwatch/downloads/latest/awslogs-agent-setup.py"},
-                    
-                      "/home/loris/cloudwatch.conf": {
-                                "content": {
-                                    "Fn::Join": [
-                                        "",
-                                        [
-                                            "[general]\n",
-                                            "state_file= /var/awslogs/agent-state\n",
-                                            "[/var/log/apache2/access.log]\n",
-                                            "file = /var/log/apache2/access.log\n",
-                                            "log_group_name = ", {"Ref": "LorisServerLogGroup"}, "\n",
-                                            "log_stream_name = instance_1/apache_access.log\n",
-                                            "datetime_format = %d/%b/%Y:%H:%M:%S"
-                                        ]
-                                    ]
-                                },
-                                "mode": "000400",
-                                "owner": "root",
-                                "group": "root"
-                    }},
-                    "commands": {
-                        "01_setup": {
-                            "command": "chmod 444 awslogs-agent-setup.py",
-                            "cwd": "/home/loris"
-                        },
-                        "02_setup": {
-                            "command": {"Fn::Join": ["", ["python awslogs-agent-setup.py -n --region ", {"Ref": "AWS::Region"}, " -c /home/loris/cloudwatch.conf"]]},
-                            "cwd": "/home/loris"
-                        }
-                    }
+                      "/home/loris/awslogs-agent-setup.py": { 
+                                 "source": "https://s3.amazonaws.com/aws-cloudwatch/downloads/latest/awslogs-agent-setup.py",
+                                 "mode": "000400",
+                                 "owner": "root",
+                                 "group": "root"
+                      }
+                  }
                 }
             }},
             "Properties": {
@@ -640,6 +616,7 @@
                         "chmod +x /etc/init.d/cfn-hup \n",
                         "update-rc.d cfn-hup defaults \n ",
                         "service cfn-hup start \n",
+                        
                         "/usr/local/bin/cfn-init -v ",
                         "         --stack ",
                         {"Ref": "AWS::StackName"},
@@ -648,12 +625,39 @@
                         "         --region ",
                         {"Ref": "AWS::Region"},
                         "\n",
+                       
+                        "# Install and configure CloudWatch agent\n",
+                        "instance_id=`curl http://169.254.169.254/latest/meta-data/instance-id`\n",
+                        "# First build the configuration file\n",
+                        "echo \"[general]\" >> /home/loris/cloudwatch.conf\n",
+                        "echo \"state_file= /var/awslogs/agent-state\" >> /home/loris/cloudwatch.conf\n",
+                        "# Apache logs\n",
+                        "echo \"[/var/log/apache2/access.log]\" >> /home/loris/cloudwatch.conf\n",
+                        "echo \"file = /var/log/apache2/access.log\" >> /home/loris/cloudwatch.conf\n",
+                        "echo \"log_group_name = ", {"Ref": "LorisServerLogGroup"}, "\" >> /home/loris/cloudwatch.conf\n",                             
+                        "echo \"datetime_format = %d/%b/%Y:%H:%M:%S\" >> /home/loris/cloudwatch.conf\n",
+                        "echo \"log_stream_name = $instance_id/apache_access.log\" >> /home/loris/cloudwatch.conf\n",
+                        "echo \"[/var/log/apache2/error.log]\" >> /home/loris/cloudwatch.conf\n",
+                        "echo \"file = /var/log/apache2/error.log\" >> /home/loris/cloudwatch.conf\n",
+                        "echo \"log_group_name = ", {"Ref": "LorisServerLogGroup"}, "\" >> /home/loris/cloudwatch.conf\n",                             
+                        "echo \"datetime_format = '%b %d %H:%M:%S.%f %Y'\" >> /home/loris/cloudwatch.conf\n",
+                        "echo \"log_stream_name = $instance_id/apache_error.log\" >> /home/loris/cloudwatch.conf\n",
+                        "# Loris logs\n",
+                        "echo \"[/var/log/loris2/loris.log]\" >> /home/loris/cloudwatch.conf\n",
+                        "echo \"file = /var/log/loris2/loris.log\" >> /home/loris/cloudwatch.conf\n",
+                        "echo \"log_group_name = ", {"Ref": "LorisServerLogGroup"}, "\" >> /home/loris/cloudwatch.conf\n",                             
+                        "echo \"datetime_format = '%Y-%m-%d %H:%M:%S'\" >> /home/loris/cloudwatch.conf\n",
+                        "echo \"log_stream_name = $instance_id/loris.log\" >> /home/loris/cloudwatch.conf\n",
+                        
+                        "python /home/loris/awslogs-agent-setup.py -n --region ", {"Ref": "AWS::Region"}, " -c /home/loris/cloudwatch.conf\n",
+                        
                         "/usr/local/bin/cfn-signal -e $? ",
                         "         --stack ",
                         {"Ref": "AWS::StackName"},
                         "         --resource WebServerGroup ",
                         "         --region ",
                         {"Ref": "AWS::Region"},
+
                         "\n"
                     ]
                 ]}}
