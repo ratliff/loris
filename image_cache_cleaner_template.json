@@ -2,6 +2,14 @@
    "AWSTemplateFormatVersion":"2010-09-09",
    "Description":"AWS Self Terminating example",
    "Parameters":{
+       "LorisServerStackName": {
+          "Description": "Name of an active CloudFormation stack that contains the EFS volume to be cleaned.",
+          "Type": "String",
+          "MinLength" : 1,
+          "MaxLength" : 255,
+          "AllowedPattern" : "^[a-zA-Z][-a-zA-Z0-9]*$",
+          "Default" : "PUAM-LorisServer"
+        },
            "VPCId": {
             "Description": "VPC in which the Loris stack should be created",
             "Type": "AWS::EC2::VPC::Id"
@@ -298,7 +306,7 @@
                         "",
                         [
                             "mount -t nfs4 -o nfsvers=4.1 $(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone).",
-                            "fs-0238c3ab",
+                            { "Fn::ImportValue" : {"Fn::Sub": "${LorisServerStackName}-EFSVolumeID" } },
                             ".efs.",
                             {"Ref": "AWS::Region"},
                             ".amazonaws.com:/ /image_cache_2_clean"
@@ -332,7 +340,7 @@
                {
                   "Ref":"SelfTerminatingSecurityGroup"
                },
-               "sg-d9c35ba0"
+               { "Fn::ImportValue" : {"Fn::Sub": "${LorisServerStackName}-LorisServerSecurityGroupID" } }
             ],
             "KeyName":{
                "Ref":"KeyName"

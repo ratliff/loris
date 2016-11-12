@@ -365,7 +365,7 @@
                 }]
             }
         },
-        "FileSystem": {
+        "EFSVolume": {
             "Type": "AWS::EFS::FileSystem",
             "Properties": {
                 "PerformanceMode": "generalPurpose",
@@ -378,7 +378,7 @@
         "MountTarget": {
             "Type": "AWS::EFS::MountTarget",
             "Properties": {
-                "FileSystemId": {"Ref": "FileSystem"},
+                "FileSystemId": {"Ref": "EFSVolume"},
                 "SubnetId": {"Ref": "SubnetId"},
                 "SecurityGroups": [{"Fn::GetAtt": [
                     "MountTargetSecurityGroup",
@@ -533,7 +533,7 @@
                         "",
                         [
                             "mount -t nfs4 -o nfsvers=4.1 $(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone).",
-                            {"Ref": "FileSystem"},
+                            {"Ref": "EFSVolume"},
                             ".efs.",
                             {"Ref": "AWS::Region"},
                             ".amazonaws.com:/ /",
@@ -808,17 +808,21 @@
             }
         }
     },
-    "Outputs": {"URL": {
-        "Description": "The URL of the website",
-        "Value": {"Fn::Join": [
-            "",
-            [
-                "http://",
-                {"Fn::GetAtt": [
-                    "ElasticLoadBalancer",
-                    "DNSName"
-                ]}
-            ]
-        ]}
-    }}
+    "Outputs": {
+      "ELBHostName": {
+        "Description": "The DNS name of the load balancer.",
+        "Value": {"Fn::GetAtt": [ "ElasticLoadBalancer", "DNSName" ]}
+      },
+      "LorisServerSecurityGroupID" : {
+        "Description" : "The ID of the LorisServerSecurityGroup",
+        "Value" :  { "Fn::GetAtt" : ["LorisServerSecurityGroup", "GroupId"] },
+        "Export" : { "Name" : {"Fn::Sub": "${AWS::StackName}-LorisServerSecurityGroupID" }}
+      },
+      "EFSVolumeID" : {
+        "Description" : "The ID of the EFS volume",
+        "Value" :  {"Ref": "EFSVolume"},
+        "Export" : { "Name" : {"Fn::Sub": "${AWS::StackName}-EFSVolumeID" }}
+      }
+
+    }
 }
