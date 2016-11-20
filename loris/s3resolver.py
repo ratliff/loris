@@ -1,4 +1,18 @@
 # -*- coding: utf-8 -*-
+'''
+s3resolver.py
+=========
+Resolves source images stored in an Amazon S3 bucket.
+
+AWS S3 credentials may be supplied to Boto in various ways
+on the host system.  They are not referenced explicitly in
+this code.
+
+Configuration file should set source_root to S3 bucket URL
+e.g.
+   impl = 'loris.s3resolver.S3Resolver'
+   source_root='s3://<bucket name>/'
+'''
 from loris_exception import ResolverException
 from loris.resolver import _AbstractResolver
 from loris.resolver import SimpleHTTPResolver
